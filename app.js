@@ -306,6 +306,12 @@ const bpmInput = document.getElementById("bpmInput");
 const beatsInput = document.getElementById("beatsInput");
 const positionSelect = document.getElementById("positionSelect");
 const melodyOrderInput = document.getElementById("melodyOrderInput");
+const presetNameInput = document.getElementById("presetNameInput");
+const presetSelect = document.getElementById("presetSelect");
+const presetSaveBtn = document.getElementById("presetSaveBtn");
+const presetLoadBtn = document.getElementById("presetLoadBtn");
+const presetDeleteBtn = document.getElementById("presetDeleteBtn");
+const presetMessage = document.getElementById("presetMessage");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const parseWarning = document.getElementById("parseWarning");
@@ -331,6 +337,87 @@ function getRootStringIndex() {
 // コードに @6/@5/@4 の個別指定があればそれを優先し、なければ共通のデフォルトを使う
 function effectiveRootStringIndex(chord) {
   return chord.rootStringOverride != null ? chord.rootStringOverride : getRootStringIndex();
+}
+
+// ---------- プリセット保存（localStorage） ----------
+
+const PRESET_STORAGE_KEY = "jazzGuitarPresets";
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function loadPresets() {
+  try {
+    return JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function savePresetsToStorage(presets) {
+  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(presets));
+}
+
+function refreshPresetSelect() {
+  const presets = loadPresets();
+  const names = Object.keys(presets).sort();
+  const current = presetSelect.value;
+  presetSelect.innerHTML = '<option value="">（なし）</option>' +
+    names.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+  if (names.includes(current)) presetSelect.value = current;
+}
+
+function savePreset() {
+  const name = presetNameInput.value.trim();
+  if (!name) {
+    presetMessage.textContent = "プリセット名を入力してください。";
+    return;
+  }
+  const presets = loadPresets();
+  presets[name] = {
+    progression: progressionInput.value,
+    bpm: bpmInput.value,
+    beats: beatsInput.value,
+    rootString: positionSelect.value,
+    melodyOrder: melodyOrderInput.value,
+  };
+  savePresetsToStorage(presets);
+  refreshPresetSelect();
+  presetSelect.value = name;
+  presetMessage.textContent = `「${name}」を保存しました。`;
+}
+
+function loadPreset() {
+  const name = presetSelect.value;
+  if (!name) {
+    presetMessage.textContent = "読み込むプリセットを選択してください。";
+    return;
+  }
+  const presets = loadPresets();
+  const p = presets[name];
+  if (!p) return;
+  progressionInput.value = p.progression;
+  bpmInput.value = p.bpm;
+  beatsInput.value = p.beats;
+  positionSelect.value = p.rootString;
+  melodyOrderInput.value = p.melodyOrder;
+  presetNameInput.value = name;
+  presetMessage.textContent = `「${name}」を読み込みました。`;
+  refreshStaticPreview();
+}
+
+function deletePreset() {
+  const name = presetSelect.value;
+  if (!name) {
+    presetMessage.textContent = "削除するプリセットを選択してください。";
+    return;
+  }
+  const presets = loadPresets();
+  delete presets[name];
+  savePresetsToStorage(presets);
+  refreshPresetSelect();
+  presetMessage.textContent = `「${name}」を削除しました。`;
 }
 
 function buildBeatDots(count) {
@@ -477,6 +564,11 @@ function startPlayback() {
   bpmInput.disabled = true;
   beatsInput.disabled = true;
   melodyOrderInput.disabled = true;
+  presetNameInput.disabled = true;
+  presetSelect.disabled = true;
+  presetSaveBtn.disabled = true;
+  presetLoadBtn.disabled = true;
+  presetDeleteBtn.disabled = true;
 
   timerId = setInterval(scheduler, 25);
   rafId = requestAnimationFrame(drawLoop);
@@ -494,6 +586,11 @@ function stopPlayback() {
   bpmInput.disabled = false;
   beatsInput.disabled = false;
   melodyOrderInput.disabled = false;
+  presetNameInput.disabled = false;
+  presetSelect.disabled = false;
+  presetSaveBtn.disabled = false;
+  presetLoadBtn.disabled = false;
+  presetDeleteBtn.disabled = false;
   countdownEl.textContent = "";
   melodyInfoEl.textContent = "";
   flashBeatDot(-1);
@@ -504,6 +601,10 @@ startBtn.addEventListener("click", startPlayback);
 stopBtn.addEventListener("click", stopPlayback);
 positionSelect.addEventListener("change", refreshStaticPreview);
 progressionInput.addEventListener("input", refreshStaticPreview);
+presetSaveBtn.addEventListener("click", savePreset);
+presetLoadBtn.addEventListener("click", loadPreset);
+presetDeleteBtn.addEventListener("click", deletePreset);
 
 buildBeatDots(4);
 refreshStaticPreview();
+refreshPresetSelect();

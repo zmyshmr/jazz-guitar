@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>コードトーン練習ツール - Jazz Guitar</title>
+<style>
+  :root{
+    --bg:#15181c; --panel:#1f2328; --panel2:#262b31; --border:#333a42;
+    --text:#e8eaed; --muted:#9aa4af; --accent:#4fb3ff;
+    --c-root:#ff5a5f; --c-3:#3b82f6; --c-5:#22c55e; --c-7:#a855f7; --c-other:#f59e0b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,"Hiragino Sans",sans-serif;
+    background:var(--bg); color:var(--text); padding:24px 16px 60px;
+  }
+  h1{font-size:18px; font-weight:600; margin:0 0 4px;}
+  .sub{color:var(--muted); font-size:13px; margin:0 0 20px;}
+  .wrap{max-width:720px; margin:0 auto;}
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:18px; margin-bottom:16px;
+  }
+  .row{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;}
+  .field{display:flex; flex-direction:column; gap:4px;}
+  .field label{font-size:12px; color:var(--muted);}
+  .field input, .field select{
+    background:var(--panel2); border:1px solid var(--border); border-radius:6px;
+    color:var(--text); padding:8px 10px; font-size:14px;
+  }
+  #progressionInput{width:100%;}
+  .field.wide{flex:1 1 280px;}
+  .field.narrow input{width:70px;}
+  .field.narrow select{width:110px;}
+  .buttons{display:flex; gap:10px; margin-top:14px;}
+  button{
+    border:none; border-radius:8px; padding:10px 20px; font-size:14px; font-weight:600;
+    cursor:pointer; transition:opacity .15s;
+  }
+  button:disabled{opacity:.4; cursor:default;}
+  #startBtn{background:var(--accent); color:#0b1520;}
+  #stopBtn{background:#3a3f45; color:var(--text);}
+  .help{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.6;}
+  .stage{
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    padding:28px 18px;
+  }
+  #countdown{font-size:48px; font-weight:700; color:var(--accent); height:56px; line-height:56px;}
+  #chordName{font-size:34px; font-weight:700; letter-spacing:.5px; min-height:44px;}
+  #barInfo{font-size:13px; color:var(--muted);}
+  .beatDots{display:flex; gap:10px;}
+  .beatDot{width:12px; height:12px; border-radius:50%; background:#3a3f45; transition:background .05s;}
+  .beatDot.active{background:var(--accent);}
+  .beatDot.down.active{background:#ff8a4c;}
+  svg#diagram{background:#fff; border-radius:10px;}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; justify-content:center; font-size:12px; color:var(--muted);}
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .dot{width:10px; height:10px; border-radius:50%; display:inline-block;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>コードトーン練習ツール</h1>
+  <p class="sub">コード進行を入力してスタートすると、メトロノームとコード音を鳴らしながら各コードのギターダイアグラムを表示します。</p>
+
+  <div class="panel">
+    <div class="row">
+      <div class="field wide">
+        <label for="progressionInput">コード進行（| で区切る。例: Cmaj7 | Dm7 | G7 | Cmaj7）</label>
+        <input id="progressionInput" type="text" value="Dm7@5 | G7 | Cmaj7@6 | Cmaj7@6">
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <div class="field narrow">
+        <label for="bpmInput">BPM</label>
+        <input id="bpmInput" type="number" value="100" min="40" max="300">
+      </div>
+      <div class="field narrow">
+        <label for="beatsInput">1コードの拍数</label>
+        <input id="beatsInput" type="number" value="4" min="1" max="8">
+      </div>
+      <div class="field narrow">
+        <label for="positionSelect">デフォルトポジション（ルートの弦）</label>
+        <select id="positionSelect">
+          <option value="0">6弦ルート</option>
+          <option value="1" selected>5弦ルート</option>
+          <option value="2">4弦ルート</option>
+        </select>
+      </div>
+    </div>
+    <div class="buttons">
+      <button id="startBtn">スタート</button>
+      <button id="stopBtn" disabled>ストップ</button>
+    </div>
+    <p class="help" id="parseWarning"></p>
+    <p class="help">
+      対応表記の例: maj7 / M7（メジャー7th）、m7 / min7（マイナー7th）、7（ドミナント7th）、m7b5 / ø（ハーフディミニッシュ）、
+      dim7 / o7（ディミニッシュ7th）、6、m6、9、maj9、m9、13、sus4、7sus4、add9 など。
+    </p>
+    <p class="help">
+      コードごとに弦を指定したいときは、コード名の後ろに @6 / @5 / @4 を付けてください（例: Dm7@5 | Cmaj7@6）。
+      指定がないコードは上のデフォルトポジションが使われます。
+    </p>
+  </div>
+
+  <div class="panel stage">
+    <div id="countdown"></div>
+    <div id="chordName"></div>
+    <div id="positionInfo" class="sub" style="margin:-8px 0 0;"></div>
+    <div id="barInfo"></div>
+    <div class="beatDots" id="beatDots"></div>
+    <svg id="diagram" width="220" height="260"></svg>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--c-root)"></i>ルート</span>
+      <span><i class="dot" style="background:var(--c-3)"></i>3rd</span>
+      <span><i class="dot" style="background:var(--c-5)"></i>5th</span>
+      <span><i class="dot" style="background:var(--c-7)"></i>7th</span>
+      <span><i class="dot" style="background:var(--c-other)"></i>その他(9,11,13...)</span>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

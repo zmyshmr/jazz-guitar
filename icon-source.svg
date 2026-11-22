@@ -1,0 +1,61 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#20252b"/>
+      <stop offset="100%" stop-color="#121519"/>
+    </linearGradient>
+    <radialGradient id="glowRoot" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff5a5f" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#ff5a5f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow3" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow5" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow7" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- フレットボード（斜めパース） -->
+  <g transform="translate(256,266) rotate(-18)">
+    <!-- フレット（横線） -->
+    <g stroke="#454c54" stroke-width="5">
+      <line x1="-170" y1="-120" x2="170" y2="-120"/>
+      <line x1="-170" y1="-60"  x2="170" y2="-60"/>
+      <line x1="-170" y1="0"    x2="170" y2="0"/>
+      <line x1="-170" y1="60"   x2="170" y2="60"/>
+      <line x1="-170" y1="120"  x2="170" y2="120"/>
+    </g>
+    <!-- 弦（縦線） -->
+    <g stroke="#5b6470" stroke-width="4">
+      <line x1="-170" y1="-120" x2="-170" y2="120"/>
+      <line x1="-85"  y1="-120" x2="-85"  y2="120"/>
+      <line x1="0"    y1="-120" x2="0"    y2="120"/>
+      <line x1="85"   y1="-120" x2="85"   y2="120"/>
+      <line x1="170"  y1="-120" x2="170"  y2="120"/>
+    </g>
+    <!-- ナット -->
+    <line x1="-170" y1="-120" x2="170" y2="-120" stroke="#e8eaed" stroke-width="9"/>
+
+    <!-- コードトーンのドット（グロー＋本体） -->
+    <circle cx="-170" cy="-60" r="46" fill="url(#glowRoot)"/>
+    <circle cx="-170" cy="-60" r="19" fill="#ff5a5f"/>
+
+    <circle cx="-85" cy="0" r="40" fill="url(#glow3)"/>
+    <circle cx="-85" cy="0" r="17" fill="#3b82f6"/>
+
+    <circle cx="0" cy="60" r="40" fill="url(#glow5)"/>
+    <circle cx="0" cy="60" r="17" fill="#22c55e"/>
+
+    <circle cx="85" cy="120" r="40" fill="url(#glow7)"/>
+    <circle cx="85" cy="120" r="17" fill="#a855f7"/>
+  </g>
+</svg>

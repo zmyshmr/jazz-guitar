@@ -1,6 +1,6 @@
 # Jazz Guitar 進捗
 
-最終更新：2026-11-21
+最終更新：2026-11-22
 
 ## 現状
 - コードトーン練習ツール（v1）を作成（`index.html` / `app.js`）
@@ -10,10 +10,12 @@
   - ルートの弦（6弦/5弦/4弦）を共通デフォルトで選択可能
   - コードごとに `@6`/`@5`/`@4` を付けて個別にルートの弦を指定可能
   - ブラウザでの動作確認済み
+- GitHubリポジトリ（public）: https://github.com/zmyshmr/jazz-guitar
+- GitHub Actions経由でGitHub Pagesに公開済み: https://zmyshmr.github.io/jazz-guitar/
+  - iPad等、同一Wi-Fiでなくてもブラウザから直接アクセス可能
 
 ## 次にやること
-- 実際にギターを弾きながら使ってみて使用感を確認
-- GitHub管理下に置き、GitHub Actions経由でGitHub Pages公開
+- 実際にギターを弾きながら使ってみて使用感を確認（iPadでの利用含む）
 
 ## 課題・メモ
 - ギターの指板上の音を把握できていない

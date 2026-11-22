@@ -65,6 +65,35 @@ const FALLBACK_ALIAS = {
 // コード名の末尾に @6 / @5 / @4 を付けると、そのコードだけルートの弦を個別指定できる
 const STRING_SUFFIX_TO_INDEX = { "6": 0, "5": 1, "4": 2 };
 
+// 度数ラベル（"R"/"♭3"など）から臨時記号を除いた素の度数（"1"/"3"...）を取り出す
+function bareDegree(label) {
+  if (label === "R") return "1";
+  return label.replace(/[♭♯]/g, "");
+}
+
+// コードの構成音から指定した度数（"1"/"3"/"5"/"7"）に一致する音を探す
+function findToneForDegree(chord, degree) {
+  for (const [semi, label] of chord.intervals) {
+    if (bareDegree(label) === degree) {
+      return { pc: (chord.rootPc + semi) % 12, label };
+    }
+  }
+  return null;
+}
+
+// メロディの再生順（例: "1,3,5,7"）をパースする。無効な入力はデフォルトにフォールバック
+function parseMelodyOrder(text) {
+  const allowed = new Set(["1", "3", "5", "7"]);
+  const tokens = text.split(/[,\s]+/).map((t) => t.trim()).filter((t) => allowed.has(t));
+  return tokens.length ? tokens : ["1", "3", "5", "7"];
+}
+
+// ピッチクラスをメロディ用のオクターブ（コード伴奏より高い音域）の周波数に変換する
+function pcToFreq(pc, octave) {
+  const semitoneFromA4 = (pc - 9) + (octave - 4) * 12;
+  return 440 * Math.pow(2, semitoneFromA4 / 12);
+}
+
 function parseChord(token) {
   let raw = token.trim();
   if (!raw) return null;
@@ -243,6 +272,19 @@ class AudioEngine {
       osc.stop(time + duration);
     });
   }
+  playMelody(freq, time, duration) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(0.14, time + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + duration + 0.02);
+  }
 }
 
 // ---------- アプリ本体 / スケジューラ ----------
@@ -253,12 +295,14 @@ const progressionInput = document.getElementById("progressionInput");
 const bpmInput = document.getElementById("bpmInput");
 const beatsInput = document.getElementById("beatsInput");
 const positionSelect = document.getElementById("positionSelect");
+const melodyOrderInput = document.getElementById("melodyOrderInput");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const parseWarning = document.getElementById("parseWarning");
 const countdownEl = document.getElementById("countdown");
 const chordNameEl = document.getElementById("chordName");
 const positionInfoEl = document.getElementById("positionInfo");
+const melodyInfoEl = document.getElementById("melodyInfo");
 const barInfoEl = document.getElementById("barInfo");
 const beatDotsEl = document.getElementById("beatDots");
 const diagramEl = document.getElementById("diagram");
@@ -317,14 +361,23 @@ function scheduleNote(time) {
   }
   const isDownbeat = state.beatCounter === 0;
   engine.playClick(time, isDownbeat);
+
+  const chord = state.chords[state.chordIdx];
+  const degree = state.melodyOrder[state.melodyIndex % state.melodyOrder.length];
+  state.melodyIndex++;
+  const melodyTone = findToneForDegree(chord, degree);
+  if (melodyTone) {
+    engine.playMelody(pcToFreq(melodyTone.pc, 5), time, state.secondsPerBeat * 0.85);
+  }
+  const melodyLabel = melodyTone ? melodyTone.label : null;
+
   if (isDownbeat) {
-    const chord = state.chords[state.chordIdx];
     const rootStringIndex = effectiveRootStringIndex(chord);
     const voicingResult = computeVoicing(chord, rootStringIndex);
     engine.playChord(voicingResult.voicing, time, state.secondsPerBeat * state.beatsPerChord * 0.95);
-    state.events.push({ time, type: "chord", chordIdx: state.chordIdx, beat: state.beatCounter, voicingResult, rootStringIndex });
+    state.events.push({ time, type: "chord", chordIdx: state.chordIdx, beat: state.beatCounter, voicingResult, rootStringIndex, melodyLabel });
   } else {
-    state.events.push({ time, type: "beat", chordIdx: state.chordIdx, beat: state.beatCounter });
+    state.events.push({ time, type: "beat", chordIdx: state.chordIdx, beat: state.beatCounter, melodyLabel });
   }
   state.beatCounter++;
   if (state.beatCounter >= state.beatsPerChord) {
@@ -346,6 +399,7 @@ function applyEvent(ev) {
   chordNameEl.textContent = chord.label;
   barInfoEl.textContent = `${ev.chordIdx + 1} / ${state.chords.length}`;
   flashBeatDot(ev.beat);
+  melodyInfoEl.textContent = ev.melodyLabel ? `メロディ: ${ev.melodyLabel}` : "";
   if (ev.type === "chord") {
     lastDisplayedChord = chord;
     positionInfoEl.textContent = STRING_LABELS[ev.rootStringIndex] + (chord.rootStringOverride != null ? "（個別指定）" : "");
@@ -388,6 +442,7 @@ function startPlayback() {
   }
   const bpm = Math.min(300, Math.max(40, parseInt(bpmInput.value, 10) || 120));
   const beatsPerChord = Math.min(8, Math.max(1, parseInt(beatsInput.value, 10) || 4));
+  const melodyOrder = parseMelodyOrder(melodyOrderInput.value);
 
   buildBeatDots(beatsPerChord);
 
@@ -401,6 +456,8 @@ function startPlayback() {
     countInRemaining: beatsPerChord,
     beatCounter: 0,
     chordIdx: 0,
+    melodyOrder,
+    melodyIndex: 0,
     events: [],
   };
 
@@ -409,6 +466,7 @@ function startPlayback() {
   progressionInput.disabled = true;
   bpmInput.disabled = true;
   beatsInput.disabled = true;
+  melodyOrderInput.disabled = true;
 
   timerId = setInterval(scheduler, 25);
   rafId = requestAnimationFrame(drawLoop);
@@ -425,7 +483,9 @@ function stopPlayback() {
   progressionInput.disabled = false;
   bpmInput.disabled = false;
   beatsInput.disabled = false;
+  melodyOrderInput.disabled = false;
   countdownEl.textContent = "";
+  melodyInfoEl.textContent = "";
   flashBeatDot(-1);
   refreshStaticPreview();
 }

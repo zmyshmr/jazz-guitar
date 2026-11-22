@@ -272,18 +272,28 @@ class AudioEngine {
       osc.stop(time + duration);
     });
   }
+  // ピアノ風：倍音を重ねた減衰音（アタックは速く、高次倍音ほど早く減衰させる）
   playMelody(freq, time, duration) {
     const ctx = this.ctx;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sawtooth";
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.exponentialRampToValueAtTime(0.14, time + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(time);
-    osc.stop(time + duration + 0.02);
+    const out = ctx.createGain();
+    out.gain.value = 0.4;
+    out.connect(ctx.destination);
+    const partials = [
+      [1, 1.0], [2, 0.5], [3, 0.28], [4, 0.14], [5, 0.09], [6, 0.05],
+    ];
+    partials.forEach(([mult, amp], i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq * mult;
+      const decay = Math.max(0.12, duration - i * 0.03);
+      gain.gain.setValueAtTime(0.0001, time);
+      gain.gain.exponentialRampToValueAtTime(amp, time + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + decay);
+      osc.connect(gain).connect(out);
+      osc.start(time);
+      osc.stop(time + decay + 0.02);
+    });
   }
 }
 

@@ -98,6 +98,12 @@
         <label for="melodyOrderInput">メロディの順番（1/3/5/7）</label>
         <input id="melodyOrderInput" type="text" value="1,3,5,7">
       </div>
+      <div class="field narrow" style="justify-content:flex-end;">
+        <label style="display:flex; align-items:center; gap:6px; white-space:nowrap; color:var(--text); font-size:13px;">
+          <input id="melodyRandomCheckbox" type="checkbox" style="width:auto; margin:0;">
+          ループごとにランダム化
+        </label>
+      </div>
     </div>
     <div class="row" style="margin-top:12px;">
       <div class="field mid">
@@ -133,6 +139,7 @@
     <p class="help">
       メロディの順番には 1（ルート）/ 3 / 5 / 7 をカンマ区切りで指定してください（例: 1,3,5,7）。
       拍ごとにこの順番でコードトーンを繰り返し鳴らします。コードにその度数がない場合は鳴らしません。
+      「ループごとにランダム化」をチェックすると、指定した度数のセットはそのままに、コード進行が一周するたびに鳴らす順番をシャッフルします。
     </p>
     <p class="help">
       コード進行・BPM・拍数・ルートの弦・メロディの順番のセットを名前を付けてこのブラウザに保存できます（他のブラウザ・端末とは共有されません）。
@@ -144,6 +151,7 @@
     <div id="chordName"></div>
     <div id="positionInfo" class="sub" style="margin:-8px 0 0;"></div>
     <div id="melodyInfo" class="sub" style="margin:0;"></div>
+    <div id="melodyOrderInfo" class="sub" style="margin:0;"></div>
     <div id="barInfo"></div>
     <div class="beatDots" id="beatDots"></div>
     <svg id="diagram" width="220" height="260"></svg>
@@ -157,6 +165,6 @@
   </div>
 </div>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

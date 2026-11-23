@@ -94,6 +94,16 @@ function pcToFreq(pc, octave) {
   return 440 * Math.pow(2, semitoneFromA4 / 12);
 }
 
+// 配列をシャッフルした新しい配列を返す（Fisher-Yates）
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function parseChord(token) {
   let raw = token.trim();
   if (!raw) return null;
@@ -306,6 +316,7 @@ const bpmInput = document.getElementById("bpmInput");
 const beatsInput = document.getElementById("beatsInput");
 const positionSelect = document.getElementById("positionSelect");
 const melodyOrderInput = document.getElementById("melodyOrderInput");
+const melodyRandomCheckbox = document.getElementById("melodyRandomCheckbox");
 const presetNameInput = document.getElementById("presetNameInput");
 const presetSelect = document.getElementById("presetSelect");
 const presetSaveBtn = document.getElementById("presetSaveBtn");
@@ -319,6 +330,7 @@ const countdownEl = document.getElementById("countdown");
 const chordNameEl = document.getElementById("chordName");
 const positionInfoEl = document.getElementById("positionInfo");
 const melodyInfoEl = document.getElementById("melodyInfo");
+const melodyOrderInfoEl = document.getElementById("melodyOrderInfo");
 const barInfoEl = document.getElementById("barInfo");
 const beatDotsEl = document.getElementById("beatDots");
 const diagramEl = document.getElementById("diagram");
@@ -381,6 +393,7 @@ function savePreset() {
     beats: beatsInput.value,
     rootString: positionSelect.value,
     melodyOrder: melodyOrderInput.value,
+    melodyRandom: melodyRandomCheckbox.checked,
   };
   savePresetsToStorage(presets);
   refreshPresetSelect();
@@ -402,6 +415,7 @@ function loadPreset() {
   beatsInput.value = p.beats;
   positionSelect.value = p.rootString;
   melodyOrderInput.value = p.melodyOrder;
+  melodyRandomCheckbox.checked = !!p.melodyRandom;
   presetNameInput.value = name;
   presetMessage.textContent = `「${name}」を読み込みました。`;
   refreshStaticPreview();
@@ -467,19 +481,24 @@ function scheduleNote(time) {
     engine.playMelody(pcToFreq(melodyTone.pc, 5), time, state.secondsPerBeat * 0.85);
   }
   const melodyLabel = melodyTone ? melodyTone.label : null;
+  const melodyOrderSnapshot = state.melodyRandomEnabled ? state.melodyOrder.join(",") : null;
 
   if (isDownbeat) {
     const rootStringIndex = effectiveRootStringIndex(chord);
     const voicingResult = computeVoicing(chord, rootStringIndex);
     engine.playChord(voicingResult.voicing, time, state.secondsPerBeat * state.beatsPerChord * 0.95);
-    state.events.push({ time, type: "chord", chordIdx: state.chordIdx, beat: state.beatCounter, voicingResult, rootStringIndex, melodyLabel });
+    state.events.push({ time, type: "chord", chordIdx: state.chordIdx, beat: state.beatCounter, voicingResult, rootStringIndex, melodyLabel, melodyOrderSnapshot });
   } else {
-    state.events.push({ time, type: "beat", chordIdx: state.chordIdx, beat: state.beatCounter, melodyLabel });
+    state.events.push({ time, type: "beat", chordIdx: state.chordIdx, beat: state.beatCounter, melodyLabel, melodyOrderSnapshot });
   }
   state.beatCounter++;
   if (state.beatCounter >= state.beatsPerChord) {
     state.beatCounter = 0;
     state.chordIdx = (state.chordIdx + 1) % state.chords.length;
+    if (state.chordIdx === 0 && state.melodyRandomEnabled) {
+      // コード進行が一周したので、次の周のためにメロディの順番をシャッフルする
+      state.melodyOrder = shuffleArray(state.baseMelodyOrder);
+    }
   }
 }
 
@@ -497,6 +516,7 @@ function applyEvent(ev) {
   barInfoEl.textContent = `${ev.chordIdx + 1} / ${state.chords.length}`;
   flashBeatDot(ev.beat);
   melodyInfoEl.textContent = ev.melodyLabel ? `メロディ: ${ev.melodyLabel}` : "";
+  melodyOrderInfoEl.textContent = ev.melodyOrderSnapshot ? `順番: ${ev.melodyOrderSnapshot}` : "";
   if (ev.type === "chord") {
     lastDisplayedChord = chord;
     positionInfoEl.textContent = STRING_LABELS[ev.rootStringIndex] + (chord.rootStringOverride != null ? "（個別指定）" : "");
@@ -539,7 +559,9 @@ function startPlayback() {
   }
   const bpm = Math.min(300, Math.max(40, parseInt(bpmInput.value, 10) || 120));
   const beatsPerChord = Math.min(8, Math.max(1, parseInt(beatsInput.value, 10) || 4));
-  const melodyOrder = parseMelodyOrder(melodyOrderInput.value);
+  const baseMelodyOrder = parseMelodyOrder(melodyOrderInput.value);
+  const melodyRandomEnabled = melodyRandomCheckbox.checked;
+  const melodyOrder = melodyRandomEnabled ? shuffleArray(baseMelodyOrder) : baseMelodyOrder;
 
   buildBeatDots(beatsPerChord);
 
@@ -553,6 +575,8 @@ function startPlayback() {
     countInRemaining: beatsPerChord,
     beatCounter: 0,
     chordIdx: 0,
+    baseMelodyOrder,
+    melodyRandomEnabled,
     melodyOrder,
     melodyIndex: 0,
     events: [],
@@ -564,6 +588,7 @@ function startPlayback() {
   bpmInput.disabled = true;
   beatsInput.disabled = true;
   melodyOrderInput.disabled = true;
+  melodyRandomCheckbox.disabled = true;
   presetNameInput.disabled = true;
   presetSelect.disabled = true;
   presetSaveBtn.disabled = true;
@@ -586,6 +611,7 @@ function stopPlayback() {
   bpmInput.disabled = false;
   beatsInput.disabled = false;
   melodyOrderInput.disabled = false;
+  melodyRandomCheckbox.disabled = false;
   presetNameInput.disabled = false;
   presetSelect.disabled = false;
   presetSaveBtn.disabled = false;
@@ -593,6 +619,7 @@ function stopPlayback() {
   presetDeleteBtn.disabled = false;
   countdownEl.textContent = "";
   melodyInfoEl.textContent = "";
+  melodyOrderInfoEl.textContent = "";
   flashBeatDot(-1);
   refreshStaticPreview();
 }

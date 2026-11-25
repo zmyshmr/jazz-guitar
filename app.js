@@ -481,23 +481,39 @@ function scheduleNote(time) {
     engine.playMelody(pcToFreq(melodyTone.pc, 5), time, state.secondsPerBeat * 0.85);
   }
   const melodyLabel = melodyTone ? melodyTone.label : null;
-  const melodyOrderSnapshot = state.melodyRandomEnabled ? state.melodyOrder.join(",") : null;
+
+  // 最後のコードの終盤（残り2拍）では、今鳴っている順番ではなく次の周の順番を予告表示する
+  const isLastChord = state.chordIdx === state.chords.length - 1;
+  const previewThreshold = Math.max(0, state.beatsPerChord - 2);
+  const showPreview = state.melodyRandomEnabled && isLastChord && state.beatCounter >= previewThreshold;
+  let melodyOrderSnapshot = null;
+  let melodyOrderPreview = false;
+  if (state.melodyRandomEnabled) {
+    if (showPreview) {
+      if (!state.nextMelodyOrder) state.nextMelodyOrder = shuffleArray(state.baseMelodyOrder);
+      melodyOrderSnapshot = state.nextMelodyOrder.join(",");
+      melodyOrderPreview = true;
+    } else {
+      melodyOrderSnapshot = state.melodyOrder.join(",");
+    }
+  }
 
   if (isDownbeat) {
     const rootStringIndex = effectiveRootStringIndex(chord);
     const voicingResult = computeVoicing(chord, rootStringIndex);
     engine.playChord(voicingResult.voicing, time, state.secondsPerBeat * state.beatsPerChord * 0.95);
-    state.events.push({ time, type: "chord", chordIdx: state.chordIdx, beat: state.beatCounter, voicingResult, rootStringIndex, melodyLabel, melodyOrderSnapshot });
+    state.events.push({ time, type: "chord", chordIdx: state.chordIdx, beat: state.beatCounter, voicingResult, rootStringIndex, melodyLabel, melodyOrderSnapshot, melodyOrderPreview });
   } else {
-    state.events.push({ time, type: "beat", chordIdx: state.chordIdx, beat: state.beatCounter, melodyLabel, melodyOrderSnapshot });
+    state.events.push({ time, type: "beat", chordIdx: state.chordIdx, beat: state.beatCounter, melodyLabel, melodyOrderSnapshot, melodyOrderPreview });
   }
   state.beatCounter++;
   if (state.beatCounter >= state.beatsPerChord) {
     state.beatCounter = 0;
     state.chordIdx = (state.chordIdx + 1) % state.chords.length;
     if (state.chordIdx === 0 && state.melodyRandomEnabled) {
-      // コード進行が一周したので、次の周のためにメロディの順番をシャッフルする
-      state.melodyOrder = shuffleArray(state.baseMelodyOrder);
+      // コード進行が一周したので、予告表示していた（なければ新たにシャッフルした）順番を本番にする
+      state.melodyOrder = state.nextMelodyOrder || shuffleArray(state.baseMelodyOrder);
+      state.nextMelodyOrder = null;
     }
   }
 }
@@ -516,7 +532,9 @@ function applyEvent(ev) {
   barInfoEl.textContent = `${ev.chordIdx + 1} / ${state.chords.length}`;
   flashBeatDot(ev.beat);
   melodyInfoEl.textContent = ev.melodyLabel ? `メロディ: ${ev.melodyLabel}` : "";
-  melodyOrderInfoEl.textContent = ev.melodyOrderSnapshot ? `順番: ${ev.melodyOrderSnapshot}` : "";
+  melodyOrderInfoEl.textContent = ev.melodyOrderSnapshot
+    ? (ev.melodyOrderPreview ? `次の順番: ${ev.melodyOrderSnapshot}` : `順番: ${ev.melodyOrderSnapshot}`)
+    : "";
   if (ev.type === "chord") {
     lastDisplayedChord = chord;
     positionInfoEl.textContent = STRING_LABELS[ev.rootStringIndex] + (chord.rootStringOverride != null ? "（個別指定）" : "");
@@ -578,6 +596,7 @@ function startPlayback() {
     baseMelodyOrder,
     melodyRandomEnabled,
     melodyOrder,
+    nextMelodyOrder: null,
     melodyIndex: 0,
     events: [],
   };
